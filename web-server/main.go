@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 )
 
 type Cat struct {
@@ -100,10 +101,22 @@ func addHamster(c echo.Context) error {
 	return c.String(http.StatusOK, "we got your hamster!")
 }
 
+func mainAdmin(c echo.Context) error {
+	return c.String(http.StatusOK, "horay you are on the secret admin main page!")
+}
+
 func main() {
 	fmt.Println("\nWelcome to CHQ Web Server")
 
 	e := echo.New()
+
+	g := e.Group("/admin")
+	// this logs the server interaction
+	g.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: `[${time_rfc3339}] ${status} ${method} ${host} ${path} ${latency_human}` + "\n",
+	}))
+	g.GET("/main", mainAdmin)
+
 	e.GET("/", yallo)
 	e.GET("/cats/:data", getCats)
 
