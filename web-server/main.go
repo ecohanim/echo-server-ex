@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 )
@@ -26,6 +27,11 @@ type Dog struct {
 type Hamster struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
+}
+
+type JwtClaims struct {
+	Name string `json:"name"`
+	jwt.StandardClaims
 }
 
 func yallo(c echo.Context) error {
@@ -111,6 +117,17 @@ func mainCookie(c echo.Context) error {
 	return c.String(http.StatusOK, "you are on the cookie page!")
 }
 
+func mainJwt(c echo.Context) error {
+	user := c.Get("user")
+	token := user.(*jwt.Token)
+	
+	claims := token.Claims.(jwt.MapClaims)
+	
+	log.Println("User Name:", claims["name"], ", User ID:", claims["jti"])
+
+	return c.String(http.StatusOK, "you are on the top secret jwt page!")
+}
+
 func login(c echo.Context) error {
 	username := c.QueryParam("username")
 	password := c.QueryParam("password")
@@ -128,9 +145,36 @@ func login(c echo.Context) error {
 
 		c.SetCookie(cookie)
 
-		return c.String(http.StatusOK, "You were logged in!")
+		// create jwt token
+		token, err := createJwtToken()
+		if err != nil {
+			log.Println("Error Creating JWT token", err)
+			return c.String(http.StatusInternalServerError, "something went wrong")
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{
+			"message": "you were logged in!",
+			"token":   token,
+		})
 	}
 	return c.String(http.StatusUnauthorized, "You are not authorized!")
+}
+
+func createJwtToken() (string, error) {
+	claims := JwtClaims{
+		"eran",
+		jwt.StandardClaims{
+			Id:        "main_user_id",
+			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
+		},
+	}
+
+	rawToken := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+	token, err := rawToken.SignedString([]byte("mySecret"))
+	if err != nil {
+		return "", err
+	}
+	return token, nil
 }
 
 /////////////////////// Middlewares ///////////////////////
@@ -150,7 +194,7 @@ func checkCookie(next echo.HandlerFunc) echo.HandlerFunc {
 			if strings.Contains(err.Error(), "named cookie not present") {
 				return c.String(http.StatusUnauthorized, "you dont have any cookie")
 			}
-			
+
 			log.Println(err)
 			return err
 		}
@@ -171,6 +215,7 @@ func main() {
 
 	adminGroup := e.Group("/admin")
 	cookieGroup := e.Group("/cookie")
+	jwtGroup := e.Group("/jwt")
 
 	// this logs the server interaction
 	adminGroup.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
@@ -185,10 +230,16 @@ func main() {
 		return false, nil
 	}))
 
-	adminGroup.GET("/main", mainAdmin)
-
 	cookieGroup.Use(checkCookie)
+
+	jwtGroup.Use(middleware.JWTWithConfig(middleware.JWTConfig{
+		SigningMethod: "HS512",
+		SigningKey:    []byte("mySecret"),
+	}))
+
+	adminGroup.GET("/main", mainAdmin)
 	cookieGroup.GET("/main", mainCookie)
+	jwtGroup.GET("/main", mainJwt)
 
 	e.GET("/login", login)
 	e.GET("/", yallo)
