@@ -105,11 +105,22 @@ func mainAdmin(c echo.Context) error {
 	return c.String(http.StatusOK, "horay you are on the secret admin main page!")
 }
 
+/////////////////////// Middlewares ///////////////////////
+
+func ServerHeader(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		c.Response().Header().Set(echo.HeaderServer, "CHQ/1.0")
+		c.Response().Header().Set("notRealHeader", "thisHaveNoMeaning")
+		return next(c)
+	}
+}
+
 func main() {
 	fmt.Println("\nWelcome to CHQ Web Server")
 
 	e := echo.New()
-
+	e.Use(ServerHeader)
+	
 	g := e.Group("/admin")
 	// this logs the server interaction
 	g.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
