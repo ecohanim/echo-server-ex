@@ -120,9 +120,9 @@ func mainCookie(c echo.Context) error {
 func mainJwt(c echo.Context) error {
 	user := c.Get("user")
 	token := user.(*jwt.Token)
-	
+
 	claims := token.Claims.(jwt.MapClaims)
-	
+
 	log.Println("User Name:", claims["name"], ", User ID:", claims["jti"])
 
 	return c.String(http.StatusOK, "you are on the top secret jwt page!")
@@ -225,6 +225,10 @@ func main() {
 	cookieGroup := e.Group("/cookie")
 	jwtGroup := e.Group("/jwt")
 
+	// e.Use(middleware.Static("/tmp/static")) // simple way of serving static dir
+	e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
+		Root: "/tmp/static",
+	}))
 	// this logs the server interaction
 	adminGroup.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: `[${time_rfc3339}] ${status} ${method} ${host} ${path} ${latency_human}` + "\n",
@@ -243,7 +247,7 @@ func main() {
 	jwtGroup.Use(middleware.JWTWithConfig(middleware.JWTConfig{
 		SigningMethod: "HS512",
 		SigningKey:    []byte("mySecret"),
-		TokenLookup: "cookie:JWTCookie",
+		TokenLookup:   "cookie:JWTCookie",
 	}))
 
 	adminGroup.GET("/main", mainAdmin)
@@ -251,7 +255,7 @@ func main() {
 	jwtGroup.GET("/main", mainJwt)
 
 	e.GET("/login", login)
-	e.GET("/", yallo)
+	e.GET("/yallo", yallo)
 	e.GET("/cats/:data", getCats)
 
 	e.POST("/cats", addCat)
