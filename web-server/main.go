@@ -152,6 +152,14 @@ func login(c echo.Context) error {
 			return c.String(http.StatusInternalServerError, "something went wrong")
 		}
 
+		jwtCookie := &http.Cookie{}
+
+		jwtCookie.Name = "JWTCookie"
+		jwtCookie.Value = token
+		jwtCookie.Expires = time.Now().Add(48 * time.Hour)
+
+		c.SetCookie(jwtCookie)
+
 		return c.JSON(http.StatusOK, map[string]string{
 			"message": "you were logged in!",
 			"token":   token,
@@ -235,6 +243,7 @@ func main() {
 	jwtGroup.Use(middleware.JWTWithConfig(middleware.JWTConfig{
 		SigningMethod: "HS512",
 		SigningKey:    []byte("mySecret"),
+		TokenLookup: "cookie:JWTCookie",
 	}))
 
 	adminGroup.GET("/main", mainAdmin)
